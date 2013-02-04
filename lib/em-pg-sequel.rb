@@ -1,3 +1,4 @@
+require 'em-synchrony'
 require 'em-synchrony/pg'
 require 'sequel'
 require 'em-pg-sequel/connection_pool'

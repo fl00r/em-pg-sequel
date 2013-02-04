@@ -16,7 +16,7 @@ Gem::Specification.new do |gem|
   gem.test_files    = gem.files.grep(%r{^(test|spec|features)/})
   gem.require_paths = ["lib"]
 
-  gem.add_dependency "pg"
+  gem.add_dependency "em-synchrony"
   gem.add_dependency "em-pg-client"
 
   gem.add_development_dependency "em-synchrony"
