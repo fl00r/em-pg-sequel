@@ -17,5 +17,3 @@ EM.synchrony do
   EM.stop
 end
 ```
-
-Right now em-pg-client doesn't support this adapter, you should use [my patched fork](https://github.com/fl00r/ruby-em-pg-client).

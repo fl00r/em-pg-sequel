@@ -29,8 +29,21 @@ module EM::PG
   end
 end
 
-PGconn = PG::EM::Client
+module PG::EM
+  class SyncClient < Client
+    # Dirty hack
+    # To avoid patching ruby-em-pg-client and to support Sequel API
+    # we should execute async_client asynchronously for em-pg and synchronously for sequel
+    def async_exec(*args)
+      if block_given?
+        super
+      else
+        exec(*args)
+      end
+    end
+  end
+end
+
+PGconn = PG::EM::SyncClient
 
 require 'sequel/adapters/postgres'
-
-# Sequel::Postgres::CONVERTED_EXCEPTIONS << ::EM::PG::Error
