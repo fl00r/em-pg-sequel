@@ -4,7 +4,7 @@ $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
 
 Gem::Specification.new do |gem|
   gem.name          = "em-pg-sequel"
-  gem.version       = "0.0.1"
+  gem.version       = "0.0.2"
   gem.authors       = ["Petr Yanovich"]
   gem.email         = ["fl00r@yandex.ru"]
   gem.description   = %q{Sequel adapter for ruby-em-pg-client}
