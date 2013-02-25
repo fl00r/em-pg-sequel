@@ -19,7 +19,6 @@ module EM::PG
         conn = acquire
         yield conn
       rescue => e
-        puts e.inspect
         conn = @acquire_blk.call if @disconnected_class && @disconnected_class === e
         raise
       ensure

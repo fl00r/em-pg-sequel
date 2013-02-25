@@ -44,7 +44,6 @@ describe EM::PG::Sequel do
 
     it "should connect and execute query" do
       EM.synchrony do 
-        puts Sequel::DatabaseDisconnectError
         test.insert name: "andrew", value: 42
         test.where(name: "andrew").first[:value].must_equal 42
 

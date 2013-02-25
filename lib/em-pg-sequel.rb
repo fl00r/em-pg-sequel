@@ -45,6 +45,10 @@ module PG::EM
   end
 end
 
-PGconn = PG::EM::SyncClient
+$VERBOSE.tap do |old_verbose|
+  $VERBOSE = nil
+  PGconn = PG::EM::SyncClient
+  $VERBOSE = old_verbose
+end
 
 require 'sequel/adapters/postgres'

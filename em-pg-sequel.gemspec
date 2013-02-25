@@ -4,7 +4,7 @@ $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
 
 Gem::Specification.new do |gem|
   gem.name          = "em-pg-sequel"
-  gem.version       = "0.0.2"
+  gem.version       = "0.0.3"
   gem.authors       = ["Petr Yanovich"]
   gem.email         = ["fl00r@yandex.ru"]
   gem.description   = %q{Sequel adapter for ruby-em-pg-client}
@@ -16,6 +16,7 @@ Gem::Specification.new do |gem|
   gem.test_files    = gem.files.grep(%r{^(test|spec|features)/})
   gem.require_paths = ["lib"]
 
+  gem.add_dependency "sequel"
   gem.add_dependency "em-synchrony"
   gem.add_dependency "em-pg-client"
 
