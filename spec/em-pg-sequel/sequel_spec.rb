@@ -8,8 +8,16 @@ describe EM::PG::Sequel do
 
   let(:url) { DB_URL }
   let(:size) { 1 }
-  let(:db) { Sequel.connect(url, max_connection: size, pool_class: :em_synchrony, db_logger: Logger.new(nil)) }
+  let(:db) { Sequel.connect(url, max_connections: size, pool_class: :em_synchrony, db_logger: Logger.new(nil)) }
   let(:test) { db[:test] }
+
+  describe "sanity" do
+    let(:size) { 42 }
+
+    it "should have max_size 42" do
+      db.pool.pool.max_size.must_equal 42
+    end
+  end
 
   describe "unexist table" do
     it "should raise exception" do
