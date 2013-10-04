@@ -10,7 +10,7 @@ Usage
 require "em-pg-sequel"
 EM.synchrony do
   url = "postgres://postgres:postgres@localhost:5432/test"
-  db = Sequel.connect(url, pool_class: EM::PG::ConnectionPool)
+  db = Sequel.connect(url, pool_class: :em_synchrony)
 
   puts db[:test].all.inspect
 
