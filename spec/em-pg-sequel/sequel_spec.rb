@@ -15,7 +15,7 @@ describe EM::PG::Sequel do
     let(:size) { 42 }
 
     it "should have max_size 42" do
-      db.pool.pool.max_size.must_equal 42
+      db.pool.max_size.must_equal 42
     end
   end
 

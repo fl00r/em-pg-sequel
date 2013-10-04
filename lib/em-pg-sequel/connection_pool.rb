@@ -1,44 +1,55 @@
 module EM::PG
   module Sequel
-    class ConnectionPool
+    class ConnectionPool < ::Sequel::ConnectionPool
+
+      DEFAULT_SIZE = 4
+
       attr_reader :available, :allocated, :max_size
 
-      def initialize(opts, &blk)
+      def initialize(db, opts = {})
+        super
         @available = []
         @allocated = {}
         @pending = []
-        @acquire_blk = blk
 
-        @disconnected_class = opts[:disconnect_class]
-
-        @max_size = opts[:size]
-        execute {}
+        @max_size = opts[:max_connections] || DEFAULT_SIZE
+        hold {}
       end
 
       def size
         @available.length + @allocated.length
       end
 
-      def execute
+      def hold(server = nil)
         fiber = Fiber.current
+
         if conn = @allocated[fiber.object_id]
           skip_release = true
         else
           conn = acquire(fiber)
         end
+
         begin
           yield conn
-        rescue => e
-          if @disconnected_class && @disconnected_class === e
-            db.disconnect_connection(conn) if conn
-            @allocated.delete(fiber.object_id)
-            skip_release = true
-          end
+
+        rescue ::Sequel::DatabaseDisconnectError => e
+          db.disconnect_connection(conn) if conn
+          @allocated.delete(fiber.object_id)
+          skip_release = true
+
           raise
         end
+
       ensure
         release(fiber) unless skip_release
       end
+
+      def disconnect(server = nil)
+        @available.each{ |conn| db.disconnect_connection(conn) }
+        @available.clear
+      end
+
+      private
 
       def acquire(fiber)
         if conn = @available.pop
@@ -55,7 +66,7 @@ module EM::PG
 
       def allocate_new_connection(fiber_id)
         @allocated[fiber_id] = true
-        @allocated[fiber_id] = @acquire_blk.call
+        @allocated[fiber_id] = make_new(DEFAULT_SERVER)
       rescue Exception => e
         @allocated.delete(fiber_id)
         raise e
@@ -70,6 +81,8 @@ module EM::PG
           @available << conn
         end
       end
+
+      CONNECTION_POOL_MAP[:em_synchrony] = self
     end
   end
 end
