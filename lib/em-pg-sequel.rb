@@ -10,7 +10,7 @@ module EM::PG
     def initialize(db, opts = {})
       super
       size = opts[:max_connections] || DEFAULT_SIZE
-      @pool = ::EM::PG::Sequel::ConnectionPool.new(size: size, disconnect_class: ::Sequel::DatabaseConnectionError) do
+      @pool = ::EM::PG::Sequel::ConnectionPool.new(size: size, disconnect_class: ::Sequel::DatabaseDisconnectError) do
         make_new(DEFAULT_SERVER)
       end
     end
