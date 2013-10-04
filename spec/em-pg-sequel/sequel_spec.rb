@@ -8,7 +8,7 @@ describe EM::PG::Sequel do
 
   let(:url) { DB_URL }
   let(:size) { 1 }
-  let(:db) { Sequel.connect(url, max_connection: size, pool_class: EM::PG::ConnectionPool, db_logger: Logger.new(nil)) }
+  let(:db) { Sequel.connect(url, max_connection: size, pool_class: :em_synchrony, db_logger: Logger.new(nil)) }
   let(:test) { db[:test] }
 
   describe "unexist table" do

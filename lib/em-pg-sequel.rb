@@ -27,6 +27,8 @@ module EM::PG
       @pool.available.each{ |conn| db.disconnect_connection(conn) }
       @pool.available.clear
     end
+
+    CONNECTION_POOL_MAP[:em_synchrony] = self
   end
 end
 
