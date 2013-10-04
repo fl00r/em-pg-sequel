@@ -16,7 +16,7 @@ module EM::PG
     end
 
     def size
-      @pool.available.size
+      @pool.size
     end
 
     def hold(server = nil, &blk)

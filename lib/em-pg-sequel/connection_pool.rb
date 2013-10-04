@@ -1,43 +1,71 @@
 module EM::PG
   module Sequel
     class ConnectionPool
-      attr_reader :available
+      attr_reader :available, :allocated, :max_size
 
       def initialize(opts, &blk)
         @available = []
+        @allocated = {}
         @pending = []
         @acquire_blk = blk
 
         @disconnected_class = opts[:disconnect_class]
 
-        opts[:size].times do
-          @available.push @acquire_blk.call
-        end
+        @max_size = opts[:size]
+        execute {}
+      end
+
+      def size
+        @available.length + @allocated.length
       end
 
       def execute
-        conn = acquire
-        yield conn
-      rescue => e
-        conn = @acquire_blk.call if @disconnected_class && @disconnected_class === e
-        raise
+        fiber = Fiber.current
+        if conn = @allocated[fiber.object_id]
+          skip_release = true
+        else
+          conn = acquire(fiber)
+        end
+        begin
+          yield conn
+        rescue => e
+          if @disconnected_class && @disconnected_class === e
+            db.disconnect_connection(conn) if conn
+            @allocated.delete(fiber.object_id)
+            skip_release = true
+          end
+          raise
+        end
       ensure
-        release(conn)
+        release(fiber) unless skip_release
       end
 
-      def acquire
-        f = Fiber.current
+      def acquire(fiber)
         if conn = @available.pop
-          conn
+          @allocated[fiber.object_id] = conn
         else
-          @pending << f
-          Fiber.yield
+          if size < max_size
+            allocate_new_connection(fiber.object_id)
+          else
+            @pending << fiber
+            Fiber.yield
+          end
         end
       end
 
-      def release(conn)
-        if job = @pending.shift
-          EM.next_tick{ job.resume conn }
+      def allocate_new_connection(fiber_id)
+        @allocated[fiber_id] = true
+        @allocated[fiber_id] = @acquire_blk.call
+      rescue Exception => e
+        @allocated.delete(fiber_id)
+        raise e
+      end
+
+      def release(fiber)
+        conn = @allocated.delete(fiber.object_id)
+        if pending = @pending.shift
+          @allocated[pending.object_id] = conn
+          EM.next_tick { pending.resume conn}
         else
           @available << conn
         end
