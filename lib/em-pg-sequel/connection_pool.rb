@@ -38,10 +38,9 @@ module EM::PG
           skip_release = true
 
           raise
+        ensure
+          release(fiber) unless skip_release
         end
-
-      ensure
-        release(fiber) unless skip_release
       end
 
       def disconnect(server = nil)
