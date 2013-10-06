@@ -1,47 +1,88 @@
 module EM::PG
   module Sequel
-    class ConnectionPool
-      attr_reader :available
+    class ConnectionPool < ::Sequel::ConnectionPool
 
-      def initialize(opts, &blk)
+      DEFAULT_SIZE = 4
+
+      attr_reader :available, :allocated, :max_size
+
+      def initialize(db, opts = {})
+        super
         @available = []
+        @allocated = {}
         @pending = []
-        @acquire_blk = blk
 
-        @disconnected_class = opts[:disconnect_class]
-
-        opts[:size].times do
-          @available.push @acquire_blk.call
-        end
+        @max_size = opts[:max_connections] || DEFAULT_SIZE
+        hold {}
       end
 
-      def execute
-        conn = acquire
-        yield conn
-      rescue => e
-        conn = @acquire_blk.call if @disconnected_class && @disconnected_class === e
-        raise
-      ensure
-        release(conn)
+      def size
+        @available.length + @allocated.length
       end
 
-      def acquire
-        f = Fiber.current
-        if conn = @available.pop
-          conn
+      def hold(server = nil)
+        fiber = Fiber.current
+
+        if conn = @allocated[fiber.object_id]
+          skip_release = true
         else
-          @pending << f
-          Fiber.yield
+          conn = acquire(fiber)
+        end
+
+        begin
+          yield conn
+
+        rescue ::Sequel::DatabaseDisconnectError => e
+          db.disconnect_connection(conn) if conn
+          @allocated.delete(fiber.object_id)
+          skip_release = true
+
+          raise
+        end
+
+      ensure
+        release(fiber) unless skip_release
+      end
+
+      def disconnect(server = nil)
+        @available.each{ |conn| db.disconnect_connection(conn) }
+        @available.clear
+      end
+
+      private
+
+      def acquire(fiber)
+        if conn = @available.pop
+          @allocated[fiber.object_id] = conn
+        else
+          if size < max_size
+            allocate_new_connection(fiber.object_id)
+          else
+            @pending << fiber
+            Fiber.yield
+          end
         end
       end
 
-      def release(conn)
-        if job = @pending.shift
-          EM.next_tick{ job.resume conn }
+      def allocate_new_connection(fiber_id)
+        @allocated[fiber_id] = true
+        @allocated[fiber_id] = make_new(DEFAULT_SERVER)
+      rescue Exception => e
+        @allocated.delete(fiber_id)
+        raise e
+      end
+
+      def release(fiber)
+        conn = @allocated.delete(fiber.object_id)
+        if pending = @pending.shift
+          @allocated[pending.object_id] = conn
+          EM.next_tick { pending.resume conn}
         else
           @available << conn
         end
       end
+
+      CONNECTION_POOL_MAP[:em_synchrony] = self
     end
   end
 end
