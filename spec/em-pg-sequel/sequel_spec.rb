@@ -17,6 +17,21 @@ describe EM::PG::Sequel do
     it "should have max_size 42" do
       db.pool.max_size.must_equal 42
     end
+
+    it "should not release nil connection on connect error" do
+      EM.synchrony do
+        db.disconnect
+        db.pool.size.must_equal 0
+        db.pool.stub :allocate_new_connection,
+            proc { raise Sequel::DatabaseConnectionError } do
+
+          proc { test.count }.must_raise Sequel::DatabaseConnectionError
+          db.pool.size.must_equal 0
+        end
+
+        EM.stop
+      end
+    end
   end
 
   describe "unexist table" do
