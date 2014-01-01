@@ -3,6 +3,8 @@ require 'em-synchrony'
 require 'em-synchrony/fiber_iterator'
 
 describe EM::PG::Sequel do
+  include SynchronyUtils
+
   DELAY = 1
   QUERY = "select pg_sleep(#{DELAY})"
 
@@ -113,6 +115,7 @@ describe EM::PG::Sequel do
     end
 
     describe "pool size is dynamic" do
+
       let(:size) { 2 }
 
       it "should have initial size of one" do
@@ -182,9 +185,62 @@ describe EM::PG::Sequel do
           EM.stop
         end
       end
+
+    end
+
+    describe "on connection errors" do
+
+      let(:size) { 3 }
+
+      it "should not leave pending requests in queue" do
+        EM.synchrony do
+          db.disconnect
+          EM::Synchrony::FiberIterator.new((0..size), size).each { test.count }
+          db.pool.available.each do |conn|
+            # force clients to disconnected state
+            conn.async_command_aborted = true
+          end.length.must_equal db.pool.size
+
+          db.pool.stub :make_new,
+              proc {
+                EM::Synchrony.sleep 0.1
+                raise Sequel::DatabaseConnectionError } do
+
+            request_counter = 0
+            expected_runs = db.pool.max_size + 10
+            expected_runs.times do |index|
+              Fiber.new do
+
+                pending = db.pool.instance_eval { @pending.length }
+                pending.must_equal [index - db.pool.max_size, 0].max
+
+                if index < db.pool.max_size
+                  proc { test.count }.must_raise Sequel::DatabaseDisconnectError
+                else
+                  proc { test.count }.must_raise Sequel::DatabaseConnectionError
+                end
+
+                request_counter += 1
+
+              end.resume
+            end
+
+            db.pool.instance_eval { @pending.length }.must_equal 10
+
+            tick_sleep while request_counter < expected_runs
+
+            db.pool.instance_eval { @pending.length }.must_equal 0
+            db.pool.size.must_equal 0
+            request_counter.must_equal expected_runs
+          end
+
+          EM.stop
+        end
+      end
     end
 
     describe "play nice with transactions" do
+
       let(:size) { 2 }
 
       it "should lock connection to fiber" do
