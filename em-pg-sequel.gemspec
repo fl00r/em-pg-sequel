@@ -17,7 +17,6 @@ Gem::Specification.new do |gem|
   gem.require_paths = ["lib"]
 
   gem.add_dependency "sequel"
-  gem.add_dependency "em-synchrony"
   gem.add_dependency "em-pg-client", ">= 0.3.0"
 
   gem.add_development_dependency "em-synchrony"
