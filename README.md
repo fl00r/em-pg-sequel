@@ -8,6 +8,7 @@ Usage
 
 ```ruby
 require "em-pg-sequel"
+require "em-synchrony"
 EM.synchrony do
   url = "postgres://postgres:postgres@localhost:5432/test"
   db = Sequel.connect(url, pool_class: :em_synchrony)
