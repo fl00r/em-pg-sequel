@@ -22,24 +22,25 @@ module EM::PG
 
       def hold(server = nil)
         fiber = Fiber.current
+        fiber_id = fiber.object_id
 
-        if conn = @allocated[fiber.object_id]
+        if conn = @allocated[fiber_id]
           skip_release = true
         else
-          conn = acquire(fiber)
+          conn = acquire(fiber) until conn
         end
 
         begin
           yield conn
 
         rescue ::Sequel::DatabaseDisconnectError => e
-          db.disconnect_connection(conn) if conn
-          @allocated.delete(fiber.object_id)
+          db.disconnect_connection(conn)
+          drop_failed(fiber_id)
           skip_release = true
 
           raise
         ensure
-          release(fiber) unless skip_release
+          release(fiber_id) unless skip_release
         end
       end
 
@@ -67,12 +68,21 @@ module EM::PG
         @allocated[fiber_id] = true
         @allocated[fiber_id] = make_new(DEFAULT_SERVER)
       rescue Exception => e
-        @allocated.delete(fiber_id)
+        drop_failed(fiber_id)
         raise e
       end
 
-      def release(fiber)
-        conn = @allocated.delete(fiber.object_id)
+      # drop failed connection (or a mark) from the pool and
+      # ensure that the pending requests won't starve
+      def drop_failed(fiber_id)
+        @allocated.delete(fiber_id)
+        if pending = @pending.shift
+          EM.next_tick { pending.resume }
+        end
+      end
+
+      def release(fiber_id)
+        conn = @allocated.delete(fiber_id)
         if pending = @pending.shift
           @allocated[pending.object_id] = conn
           EM.next_tick { pending.resume conn}

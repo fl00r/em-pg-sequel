@@ -16,6 +16,24 @@ DB_CONFIG = {
   password: "postgres",
 }
 
+module SynchronyUtils
+  def tick_sleep
+    f = Fiber.current
+    EM::next_tick { f.resume }
+    Fiber.yield
+  end
+
+  def synchrony
+    EM.synchrony do
+      begin
+        yield
+      ensure
+        EM.stop
+      end
+    end
+  end
+end
+
 DB_URL = "postgres://%s:%s@%s:%d/%s" % [DB_CONFIG[:user], DB_CONFIG[:password], DB_CONFIG[:host], DB_CONFIG[:port], DB_CONFIG[:dbname]]
 
 MiniTest::Reporters.use! MiniTest::Reporters::SpecReporter.new
